@@ -1,0 +1,15 @@
+sourceCompatibility = 1.7
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+sourceSets.main.java.srcDirs = [ "src/" ]
+
+eclipse.project.name = appName + "-core"
+
+dependencies {
+    compileOnly "org.projectlombok:lombok:1.18.30"
+    annotationProcessor "org.projectlombok:lombok:1.18.30"
+
+
+    implementation  "space.earlygrey:shapedrawer:2.6.0"
+    implementation "com.github.tommyettinger:jbump:v1.0.1"
+}
