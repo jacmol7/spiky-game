@@ -57,9 +57,10 @@ public class Player extends Entity {
         arms.get(Arm.Direction.LEFT).setActive(moveDirection.x < 0);
         arms.get(Arm.Direction.RIGHT).setActive(moveDirection.x > 0);
 
+        for (Arm arm : arms.values()) {
+            arm.act(delta);
+        }
 
-//        deltaX = (moveDirection.x * 100);
-//        deltaY = (moveDirection.y * 100);
         x += delta * deltaX;
         y += delta * deltaY;
 
@@ -89,10 +90,8 @@ public class Player extends Entity {
             y = rect.y - bboxY;
         }
 
-        System.out.println(deltaY);
-
         for (Arm arm : arms.values()) {
-            arm.act(delta);
+            arm.updateAnimation();
             arm.draw();
         }
     }

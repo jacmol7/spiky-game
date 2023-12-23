@@ -6,6 +6,8 @@ import com.dongbat.jbump.*;
 import lombok.Setter;
 import space.earlygrey.shapedrawer.ShapeDrawer;
 
+import javax.swing.text.ViewFactory;
+
 public class Arm extends Entity {
 
     public enum Direction {
@@ -14,6 +16,8 @@ public class Arm extends Entity {
         LEFT,
         RIGHT
     };
+
+    private static final float MAX_ARM_LENGTH = 50;
 
     private static final CollisionFilter ARM_COLLISION_FILTER = new ArmCollisionFilter();
 
@@ -27,7 +31,6 @@ public class Arm extends Entity {
     private int yOffset;
 
     private boolean visible = false;
-
 
     public Arm(ShapeDrawer shapeDrawer, World<Entity> world, Player player, Direction direction) {
         super(shapeDrawer, world);
@@ -75,16 +78,43 @@ public class Arm extends Entity {
         }
         visible = true;
 
-        boolean maxExtended = extend(delta);
+        Vector2 distanceToExtend = getDistanceToExtend(delta);
 
-        if (!maxExtended) {
-            Response.Result result = world.check(item, x + bboxWidth, y + bboxHeight, ARM_COLLISION_FILTER);
+        if (!distanceToExtend.isZero()) {
+            Response.Result result = world.check(item, x + bboxWidth + distanceToExtend.x, y + bboxHeight + distanceToExtend.y, ARM_COLLISION_FILTER);
             if (!result.projectedCollisions.isEmpty()) {
                 Collision collision = result.projectedCollisions.get(0);
                 if (collision.normal.equals(getPushDirection())) player.push(new Vector2(collision.normal.x * 50, collision.normal.y * 50));
             }
         }
-        world.move(item, x + bboxWidth - 10, y + bboxHeight - 10, ARM_COLLISION_FILTER);
+
+        float goalX = x + bboxWidth + distanceToExtend.x - 10;
+        float goalY = y + bboxHeight + distanceToExtend.y - 10;
+
+        world.move(item, goalX, goalY, ARM_COLLISION_FILTER);
+    }
+
+    public void updateAnimation() {
+        if (!active) return;
+        Rect armRect = world.getRect(item);
+        Rect playerRect = world.getRect(player.item);
+
+        float distFloat =  new Vector2(armRect.x, armRect.y).dst(playerRect.x + xOffset - 10, playerRect.y + yOffset - 10);
+
+        switch (direction) {
+            case UP:
+                bboxHeight = distFloat;
+                break;
+            case DOWN:
+                bboxHeight = -distFloat;
+                break;
+            case RIGHT:
+                bboxWidth = distFloat;
+                break;
+            case LEFT:
+                bboxWidth = -distFloat;
+                break;
+        }
     }
 
     private IntPoint getPushDirection() {
@@ -104,7 +134,7 @@ public class Arm extends Entity {
         switch (direction) {
             case UP:
                 bboxHeight -= 500 * delta;
-                if (bboxHeight < -10) {
+                if (bboxHeight - 500 * delta < -10) {
                     bboxHeight = -10;
                     return true;
                 }
@@ -134,45 +164,42 @@ public class Arm extends Entity {
         return false;
     }
 
-    private boolean extend(float delta) {
+    private void extendAnimation(Vector2 distance) {
+        bboxHeight += distance.y;
+        bboxWidth += distance.x;
+    }
+
+    private Vector2 getDistanceToExtend(float delta) {
         switch (direction) {
             case UP:
-                bboxHeight += 750 * delta;
-                if (bboxHeight > 50) {
-                    bboxHeight = 50;
-                    return true;
+                if (bboxHeight + 750 * delta > MAX_ARM_LENGTH) {
+                    return new Vector2(0, MAX_ARM_LENGTH - bboxHeight);
                 }
-                break;
+                return new Vector2(0, 750 * delta);
             case DOWN:
-                bboxHeight -= 750 * delta;
-                if (bboxHeight < -50) {
-                    bboxHeight = -50;
-                    return true;
+                if (bboxHeight - 750 * delta < -MAX_ARM_LENGTH) {
+                    return new Vector2(0, -MAX_ARM_LENGTH - bboxHeight);
                 }
-                break;
+                return new Vector2(0, -750 * delta);
             case LEFT:
-                bboxWidth -= 750 * delta;
-                if (bboxWidth < -50) {
-                    bboxWidth = -50;
-                    return true;
+                if (bboxWidth - 750 * delta < -MAX_ARM_LENGTH) {
+                    return new Vector2(-MAX_ARM_LENGTH - bboxWidth, 0);
                 }
-                break;
+                return new Vector2(-750 * delta, 0);
             case RIGHT:
-                bboxWidth += 750 * delta;
-                if (bboxWidth > 50) {
-                    bboxWidth = 50;
-                    return true;
+                if (bboxWidth + 750 * delta > MAX_ARM_LENGTH) {
+                    return new Vector2(MAX_ARM_LENGTH - bboxWidth, 0);
                 }
-                break;
+                return new Vector2(750 * delta, 0);
         }
-        return false;
+        return new Vector2(0, 0);
     }
 
     @Override
     public void draw() {
         if (!visible) return;
         shapeDrawer.rectangle(x, y, bboxWidth, bboxHeight, Color.GREEN);
-//        drawCollider();
+        drawCollider();
     }
 
     public static class ArmCollisionFilter implements CollisionFilter {
@@ -183,7 +210,7 @@ public class Arm extends Entity {
                 return null;
             }
             if (other.userData instanceof Block) {
-                return Response.touch;
+                return Response.slide;
             }
             return null;
         }
